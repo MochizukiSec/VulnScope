@@ -161,6 +161,13 @@ docker build -t vulnscope .
 docker run -p 3000:3000 vulnscope
 ```
 
+### 项目截图
+<img width="1476" alt="iShot_2025-06-06_15 03 38" src="https://github.com/user-attachments/assets/3f3e8f94-b335-49a6-9eb7-acffe8b23a05" />
+<img width="1475" alt="iShot_2025-06-06_15 03 46" src="https://github.com/user-attachments/assets/b342a292-eb96-4cdf-9731-623e6a23dc1d" />
+<img width="1480" alt="iShot_2025-06-06_15 03 57" src="https://github.com/user-attachments/assets/3779585c-c2db-4d24-b08e-7df5fecac83a" />
+<img width="1480" alt="iShot_2025-06-06_15 04 02" src="https://github.com/user-attachments/assets/b15a06d8-466b-4a80-9073-fd39f0be2006" />
+
+
 ### 生产环境配置
 - 设置强密码和安全的JWT密钥
 - 配置HTTPS
