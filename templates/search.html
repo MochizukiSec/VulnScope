@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索分析 - VulnScope</title>
+    
+    <!-- 外部依赖 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 项目样式 -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/layout.js"></script>
+    <script src="/static/js/search.js"></script>
+    
+    <style>
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .result-item {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .result-item.animate-fade-in {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen" id="search-page">
+    <!-- 顶部导航栏 -->
+    <nav class="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-shield-halved text-3xl text-indigo-600 mr-3"></i>
+                        <h1 class="nav-brand">VulnScope</h1>
+                    </div>
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/dashboard" class="nav-link">
+                            <i class="fas fa-tachometer-alt mr-2"></i>仪表板
+                        </a>
+                        <a href="/vulnerabilities" class="nav-link">
+                            <i class="fas fa-bug mr-2"></i>漏洞管理
+                        </a>
+                        <a href="/search" class="nav-link active">
+                            <i class="fas fa-search mr-2"></i>搜索分析
+                        </a>
+                        <a href="/analytics" class="nav-link">
+                            <i class="fas fa-chart-line mr-2"></i>趋势分析
+                        </a>
+                        <a href="/settings" class="nav-link">
+                            <i class="fas fa-cog mr-2"></i>系统设置
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- 用户菜单 -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" class="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=Admin&background=6366f1&color=fff" alt="User avatar">
+                            <span class="ml-2 text-gray-700 font-medium">Admin</span>
+                            <i class="fas fa-chevron-down ml-1 text-gray-400"></i>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">个人资料</a>
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">账户设置</a>
+                            <div class="border-t border-gray-100"></div>
+                            <button class="logout-btn w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <!-- 搜索头部 -->
+        <div class="mb-8" data-animate="animate-slide-up">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">漏洞情报搜索</h1>
+                <p class="text-gray-600">搜索和分析全球漏洞情报数据库</p>
+            </div>
+
+            <!-- 搜索框 -->
+            <form id="search-form" class="search-container mb-6">
+                <input 
+                    type="text" 
+                    id="search-input"
+                    name="q"
+                    class="search-input"
+                    placeholder="输入漏洞名称、CVE编号或关键词..."
+                    autocomplete="off"
+                />
+                <button type="submit" class="search-button">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+
+            <!-- 高级搜索切换 -->
+            <div class="text-center">
+                <button id="advanced-toggle" class="btn btn-outline">
+                    <i class="fas fa-chevron-down mr-2"></i>高级搜索
+                </button>
+            </div>
+        </div>
+
+        <!-- 高级搜索面板 -->
+        <div id="advanced-search" class="hidden mb-8" data-animate="animate-fade-scale">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <!-- 严重程度过滤器 -->
+                <div class="filter-panel">
+                    <div class="filter-group">
+                        <h3 class="filter-title">严重程度</h3>
+                        <div class="filter-options">
+                            <div class="filter-option severity-filter" data-value="critical">
+                                <span class="severity-badge severity-critical">严重</span>
+                            </div>
+                            <div class="filter-option severity-filter" data-value="high">
+                                <span class="severity-badge severity-high">高危</span>
+                            </div>
+                            <div class="filter-option severity-filter" data-value="medium">
+                                <span class="severity-badge severity-medium">中危</span>
+                            </div>
+                            <div class="filter-option severity-filter" data-value="low">
+                                <span class="severity-badge severity-low">低危</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 来源过滤器 -->
+                <div class="filter-panel">
+                    <div class="filter-group">
+                        <h3 class="filter-title">漏洞来源</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="source-filter" data-value="NVD" />
+                                <span class="ml-2 text-sm">NVD</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="source-filter" data-value="Exploit-DB" />
+                                <span class="ml-2 text-sm">Exploit-DB</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="source-filter" data-value="CVE Details" />
+                                <span class="ml-2 text-sm">CVE Details</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="source-filter" data-value="长亭漏洞库" />
+                                <span class="ml-2 text-sm">长亭漏洞库</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="source-filter" data-value="Aliyun AVD" />
+                                <span class="ml-2 text-sm">Aliyun AVD</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="source-filter" data-value="Qianxin TI" />
+                                <span class="ml-2 text-sm">Qianxin TI</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 时间和分数过滤器 -->
+                <div class="filter-panel">
+                    <div class="filter-group">
+                        <h3 class="filter-title">时间范围</h3>
+                        <select id="time-range-select" class="form-select filter-select">
+                            <option value="">全部时间</option>
+                            <option value="today">今天</option>
+                            <option value="week">本周</option>
+                            <option value="month">本月</option>
+                            <option value="quarter">本季度</option>
+                            <option value="year">今年</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <h3 class="filter-title">CVSS 分数</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="min-score-input" class="form-input" placeholder="最低" min="0" max="10" step="0.1" />
+                            <input type="number" id="max-score-input" class="form-input" placeholder="最高" min="0" max="10" step="0.1" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其他选项 -->
+                <div class="filter-panel">
+                    <div class="filter-group">
+                        <h3 class="filter-title">其他选项</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="has-exploit-check" />
+                                <span class="ml-2 text-sm">有利用代码</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="has-poc-check" />
+                                <span class="ml-2 text-sm">有概念验证</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="has-patch-check" />
+                                <span class="ml-2 text-sm">有补丁</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="flex space-x-2">
+                            <button type="button" id="clear-filters" class="btn btn-outline btn-sm flex-1">
+                                <i class="fas fa-times mr-2"></i>清除
+                            </button>
+                            <button type="button" onclick="searchPage.applyFilters()" class="btn btn-primary btn-sm flex-1">
+                                <i class="fas fa-filter mr-2"></i>应用
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 搜索结果头部 -->
+        <div class="flex items-center justify-between mb-6" id="results-header">
+            <div>
+                <div id="results-info" class="text-sm text-gray-600">
+                    <!-- 结果统计信息将通过JS填充 -->
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <!-- 排序选择 -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-600">排序:</label>
+                    <select id="sort-select" class="form-select">
+                        <option value="relevance">相关性</option>
+                        <option value="published_date_desc">发布日期(新到旧)</option>
+                        <option value="published_date_asc">发布日期(旧到新)</option>
+                        <option value="severity_desc">严重程度(高到低)</option>
+                        <option value="score_desc">CVSS分数(高到低)</option>
+                    </select>
+                </div>
+                
+                <!-- 导出按钮 -->
+                <button id="export-results" class="btn btn-outline">
+                    <i class="fas fa-download mr-2"></i>导出
+                </button>
+            </div>
+        </div>
+
+        <!-- 搜索结果 -->
+        <div class="space-y-4 mb-8" id="search-results">
+            <!-- 搜索结果将通过JS动态加载 -->
+        </div>
+
+        <!-- 分页 -->
+        <div id="pagination-container" class="flex justify-center">
+            <!-- 分页组件将通过JS动态生成 -->
+        </div>
+    </main>
+
+    <!-- 项目脚本 -->
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/search.js"></script>
+</body>
+</html> 

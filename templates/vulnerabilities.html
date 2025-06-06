@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漏洞情报 - VulnScope</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/layout.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="navbar-gradient text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <button class="mobile-menu-btn md:hidden mr-3">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <i class="fas fa-shield-alt text-2xl mr-3"></i>
+                    <span class="text-xl font-bold">VulnScope</span>
+                    <span class="ml-2 text-sm opacity-75 hidden sm:inline">漏洞情报分析平台</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative user-menu-trigger cursor-pointer">
+                        <i class="fas fa-bell text-lg hover:text-yellow-300 transition-colors duration-200"></i>
+                        <span class="absolute -top-2 -right-2 bg-red-500 text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">3</span>
+                    </div>
+                    <div class="flex items-center space-x-2 user-menu-trigger cursor-pointer relative">
+                        <div class="user-avatar">
+                            <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-600"></i>
+                            </div>
+                        </div>
+                        <span class="text-sm user-display-name">安全管理员</span>
+                        <i class="fas fa-chevron-down text-xs ml-1"></i>
+                        <!-- 用户下拉菜单 -->
+                        <div class="user-dropdown-menu absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden">
+                            <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-user mr-2"></i>个人资料
+                            </a>
+                            <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-cog mr-2"></i>系统设置
+                            </a>
+                            <hr class="my-1">
+                            <button class="logout-btn w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 移动端遮罩 -->
+    <div class="mobile-overlay fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden hidden"></div>
+    
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white shadow-lg min-h-screen sidebar fixed md:relative z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="p-4">
+                <nav class="space-y-2">
+                    <a href="/" class="sidebar-nav-item flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg" data-page="dashboard">
+                        <i class="fas fa-tachometer-alt sidebar-icon mr-3"></i>
+                        控制台
+                    </a>
+                    <a href="/vulnerabilities" class="sidebar-nav-item flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg active" data-page="vulnerabilities">
+                        <i class="fas fa-bug sidebar-icon mr-3"></i>
+                        漏洞情报
+                    </a>
+                    <a href="/search" class="sidebar-nav-item flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg" data-page="search">
+                        <i class="fas fa-search sidebar-icon mr-3"></i>
+                        搜索分析
+                    </a>
+                    <a href="/analytics" class="sidebar-nav-item flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg" data-page="analytics">
+                        <i class="fas fa-chart-line sidebar-icon mr-3"></i>
+                        趋势分析
+                    </a>
+                    <a href="/settings" class="sidebar-nav-item flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg" data-page="settings">
+                        <i class="fas fa-cogs sidebar-icon mr-3"></i>
+                        系统设置
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- 收集状态 -->
+            <div class="p-4 border-t">
+                <h3 class="text-sm font-medium text-gray-500 mb-3">收集状态</h3>
+                <div class="space-y-2" id="collector-status">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">NVD</span>
+                        <span class="text-green-500">
+                            <span class="status-indicator status-online"></span>活跃
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">Exploit-DB</span>
+                        <span class="text-green-500">
+                            <span class="status-indicator status-online"></span>活跃
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">CVE Details</span>
+                        <span class="text-yellow-500">
+                            <span class="status-indicator status-warning"></span>同步中
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">长亭漏洞库</span>
+                        <span class="text-green-500">
+                            <span class="status-indicator status-online"></span>活跃
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-0 w-full overflow-x-hidden">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <!-- 页面标题和操作按钮 -->
+            <div class="mb-8" data-animate="animate-slide-up">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">漏洞情报管理</h1>
+                        <p class="mt-2 text-gray-600">全面管理和分析漏洞情报数据</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="status-indicator status-online"></div>
+                            <span class="text-sm text-gray-600">数据同步正常</span>
+                        </div>
+                        <button id="refresh-data" class="btn btn-primary">
+                            <i class="fas fa-sync-alt mr-2"></i>刷新数据
+                        </button>
+                        <button class="btn btn-secondary">
+                            <i class="fas fa-download mr-2"></i>导出数据
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 搜索和筛选面板 -->
+            <div class="card content-card mb-6" data-animate="animate-fade-scale">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold text-gray-900">搜索筛选</h3>
+                </div>
+                <div class="card-body">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="form-group">
+                            <label for="search-input" class="form-label">关键词搜索</label>
+                            <input type="text" id="search-input" placeholder="搜索CVE ID、标题..." class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="severity-filter" class="form-label">严重程度</label>
+                            <select id="severity-filter" class="form-select">
+                                <option value="">所有严重程度</option>
+                                <option value="critical">严重</option>
+                                <option value="high">高危</option>
+                                <option value="medium">中危</option>
+                                <option value="low">低危</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="source-filter" class="form-label">数据源</label>
+                            <select id="source-filter" class="form-select">
+                                <option value="">所有来源</option>
+                                <option value="NVD">NVD</option>
+                                <option value="Exploit-DB">Exploit-DB</option>
+                                <option value="CVE Details">CVE Details</option>
+                                <option value="长亭漏洞库">长亭漏洞库</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex items-end space-x-2">
+                            <button onclick="applyFilters()" class="btn btn-primary flex-1">
+                                <i class="fas fa-search mr-2"></i>搜索
+                            </button>
+                            <button onclick="clearFilters()" class="btn btn-secondary flex-1">
+                                <i class="fas fa-times mr-2"></i>清除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 漏洞列表 -->
+            <div class="card content-card" data-animate="animate-fade-scale" style="animation-delay: 0.1s;">
+                <div class="card-header">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">漏洞列表</h3>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-500" id="total-count">共 0 条记录</span>
+                            <div class="flex space-x-1">
+                                <button class="btn btn-sm btn-secondary" title="表格视图">
+                                    <i class="fas fa-table"></i>
+                                </button>
+                                <button class="btn btn-sm btn-secondary" title="卡片视图">
+                                    <i class="fas fa-th-large"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-gray-200" data-sortable>
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" data-sort="cve_id">
+                                        <div class="flex items-center space-x-1">
+                                            <span>CVE ID</span>
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </div>
+                                    </th>
+                                    <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" data-sort="title">
+                                        <div class="flex items-center space-x-1">
+                                            <span>标题</span>
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </div>
+                                    </th>
+                                    <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" data-sort="severity">
+                                        <div class="flex items-center space-x-1">
+                                            <span>严重程度</span>
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </div>
+                                    </th>
+                                    <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" data-sort="source">
+                                        <div class="flex items-center space-x-1">
+                                            <span>来源</span>
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </div>
+                                    </th>
+                                    <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" data-sort="published_date">
+                                        <div class="flex items-center space-x-1">
+                                            <span>发布时间</span>
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </div>
+                                    </th>
+                                    <th class="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        操作
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="vulnerabilities-tbody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                                        <div class="flex flex-col items-center space-y-3">
+                                            <div class="loading-spinner"></div>
+                                            <span>正在加载漏洞数据...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- 分页控件 -->
+                <div class="card-footer">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-500">
+                            显示第 <span id="page-start">0</span> - <span id="page-end">0</span> 条，共 <span id="page-total">0</span> 条记录
+                        </div>
+                        <div class="flex items-center space-x-2" id="pagination-controls">
+                            <button class="btn btn-sm btn-secondary" id="prev-page" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span class="text-sm text-gray-500">第 <span id="current-page">1</span> 页</span>
+                            <button class="btn btn-sm btn-secondary" id="next-page" disabled>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 漏洞管理页面类
+        class VulnerabilitiesPage {
+            constructor() {
+                this.currentPage = 1;
+                this.pageSize = 20;
+                this.totalCount = 0;
+                this.vulnerabilities = [];
+                this.filters = {};
+                this.isLoading = false;
+                
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+                this.loadVulnerabilities();
+            }
+            
+            bindEvents() {
+                // 搜索按钮
+                document.getElementById('refresh-data').addEventListener('click', () => {
+                    this.loadVulnerabilities();
+                });
+                
+                // 回车搜索
+                document.getElementById('search-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.applyFilters();
+                    }
+                });
+                
+                // 分页按钮
+                document.getElementById('prev-page').addEventListener('click', () => {
+                    if (this.currentPage > 1) {
+                        this.currentPage--;
+                        this.loadVulnerabilities();
+                    }
+                });
+                
+                document.getElementById('next-page').addEventListener('click', () => {
+                    const totalPages = Math.ceil(this.totalCount / this.pageSize);
+                    if (this.currentPage < totalPages) {
+                        this.currentPage++;
+                        this.loadVulnerabilities();
+                    }
+                });
+            }
+            
+            async loadVulnerabilities(filters = {}) {
+                if (this.isLoading) return;
+                
+                try {
+                    this.isLoading = true;
+                    this.showLoading();
+                    
+                    const params = {
+                        page: this.currentPage,
+                        limit: this.pageSize,
+                        ...this.filters,
+                        ...filters
+                    };
+                    
+                    console.log('Loading vulnerabilities with params:', params);
+                    
+                    const response = await VulnScope.API.vulnerabilities.list(params);
+                    
+                    if (response && response.success) {
+                        this.vulnerabilities = response.data || [];
+                        this.totalCount = response.total || this.vulnerabilities.length;
+                        this.displayVulnerabilities();
+                        this.updatePagination();
+                        this.updateCounters();
+                        
+                        VulnScope.Notification.success(`已加载 ${this.vulnerabilities.length} 条漏洞数据`);
+                    } else {
+                        console.error('API Error:', response?.message);
+                        this.showError('加载失败: ' + (response?.message || '未知错误'));
+                        VulnScope.Notification.error('数据加载失败');
+                    }
+                } catch (error) {
+                    console.error('Network Error:', error);
+                    this.showError('网络错误，请检查连接');
+                    VulnScope.Notification.error('网络连接失败');
+                } finally {
+                    this.isLoading = false;
+                    this.hideLoading();
+                }
+            }
+            
+            showLoading() {
+                VulnScope.Loading.show('#vulnerabilities-tbody', '正在加载漏洞数据...');
+            }
+            
+            hideLoading() {
+                VulnScope.Loading.hide('#vulnerabilities-tbody');
+            }
+            
+                         showError(message) {
+                document.getElementById('vulnerabilities-tbody').innerHTML = 
+                    `<tr><td colspan="6" class="px-6 py-12 text-center">
+                        <div class="flex flex-col items-center space-y-3 text-red-500">
+                            <i class="fas fa-exclamation-triangle text-3xl"></i>
+                            <span>${message}</span>
+                            <button onclick="vulnerabilitiesPage.loadVulnerabilities()" class="btn btn-sm btn-primary mt-2">
+                                <i class="fas fa-retry mr-2"></i>重试
+                            </button>
+                        </div>
+                    </td></tr>`;
+            }
+            
+            displayVulnerabilities() {
+                const tbody = document.getElementById('vulnerabilities-tbody');
+                
+                if (this.vulnerabilities.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                                <div class="flex flex-col items-center space-y-3">
+                                    <i class="fas fa-inbox text-3xl"></i>
+                                    <span>暂无漏洞数据</span>
+                                </div>
+                            </td>
+                        </tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = this.vulnerabilities.map((vuln, index) => {
+                    const severityClass = VulnScope.Utils.getSeverityClass(vuln.severity);
+                    const severityText = VulnScope.Utils.getSeverityText(vuln.severity);
+
+                    return `
+                        <tr class="hover:bg-gray-50 transition-colors duration-200" data-animate="animate-fade-in" style="animation-delay: ${index * 50}ms;">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                                    ${vuln.cve_id || '<span class="text-gray-400">---</span>'}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900 font-medium max-w-xs truncate" title="${vuln.title}">
+                                    ${vuln.title}
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    CVSS: ${vuln.cvss_score ? vuln.cvss_score.toFixed(1) : '未评分'}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="severity-badge ${severityClass}">
+                                    ${severityText}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">${vuln.source}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">
+                                    ${VulnScope.Utils.formatDate(vuln.published_date, 'YYYY-MM-DD')}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    ${VulnScope.Utils.timeAgo(vuln.published_date)}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex items-center justify-end space-x-2">
+                                    <a href="/vulnerabilities/${vuln.id}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye mr-1"></i>详情
+                                    </a>
+                                    <button class="btn btn-sm btn-secondary" 
+                                            onclick="vulnerabilitiesPage.copyToClipboard('${vuln.cve_id || vuln.title}')"
+                                            title="复制">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                // 触发动画
+                setTimeout(() => {
+                    tbody.querySelectorAll('[data-animate]').forEach((el, index) => {
+                        setTimeout(() => {
+                            el.classList.add(el.dataset.animate);
+                        }, index * 50);
+                    });
+                }, 50);
+            }
+            
+            updatePagination() {
+                const totalPages = Math.ceil(this.totalCount / this.pageSize);
+                
+                document.getElementById('current-page').textContent = this.currentPage;
+                document.getElementById('prev-page').disabled = this.currentPage <= 1;
+                document.getElementById('next-page').disabled = this.currentPage >= totalPages;
+            }
+            
+            updateCounters() {
+                const start = (this.currentPage - 1) * this.pageSize + 1;
+                const end = Math.min(this.currentPage * this.pageSize, this.totalCount);
+                
+                document.getElementById('total-count').textContent = `共 ${this.totalCount} 条记录`;
+                document.getElementById('page-start').textContent = start;
+                document.getElementById('page-end').textContent = end;
+                document.getElementById('page-total').textContent = this.totalCount;
+            }
+            
+            applyFilters() {
+                const search = document.getElementById('search-input').value.trim();
+                const severity = document.getElementById('severity-filter').value;
+                const source = document.getElementById('source-filter').value;
+                
+                this.filters = {};
+                if (search) this.filters.search = search;
+                if (severity) this.filters.severity = severity;
+                if (source) this.filters.source = source;
+                
+                this.currentPage = 1;
+                this.loadVulnerabilities();
+            }
+            
+            clearFilters() {
+                document.getElementById('search-input').value = '';
+                document.getElementById('severity-filter').value = '';
+                document.getElementById('source-filter').value = '';
+                this.filters = {};
+                this.currentPage = 1;
+                this.loadVulnerabilities();
+            }
+            
+            copyToClipboard(text) {
+                VulnScope.Utils.copyToClipboard(text).then(() => {
+                    VulnScope.Notification.success('已复制到剪贴板');
+                }).catch(() => {
+                    VulnScope.Notification.error('复制失败');
+                });
+            }
+        }
+
+        // 全局变量和兼容函数
+        let vulnerabilitiesPage;
+        
+        // 兼容旧版函数调用
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        
+        function loadVulnerabilities(filters = {}) {
+            return vulnerabilitiesPage?.loadVulnerabilities(filters);
+        }
+        
+        function displayVulnerabilities(vulnerabilities) {
+            if (vulnerabilitiesPage) {
+                vulnerabilitiesPage.vulnerabilities = vulnerabilities;
+                vulnerabilitiesPage.displayVulnerabilities();
+            }
+        }
+        
+        function applyFilters() {
+            return vulnerabilitiesPage?.applyFilters();
+        }
+        
+        function clearFilters() {
+            return vulnerabilitiesPage?.clearFilters();
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 等待VulnScope加载完成
+            if (typeof VulnScope !== 'undefined') {
+                vulnerabilitiesPage = new VulnerabilitiesPage();
+            } else {
+                // 如果VulnScope未加载，等待一段时间再重试
+                setTimeout(() => {
+                    if (typeof VulnScope !== 'undefined') {
+                        vulnerabilitiesPage = new VulnerabilitiesPage();
+                    } else {
+                        console.error('VulnScope not loaded, falling back to basic mode');
+                        // 基础模式：直接使用旧版加载方式
+                        basicLoadVulnerabilities();
+                    }
+                }, 100);
+            }
+        });
+        
+        // 基础模式加载（备用方案）
+        async function basicLoadVulnerabilities() {
+            try {
+                const token = getCookie('token') || localStorage.getItem('auth_token');
+                const response = await fetch('/api/vulnerabilities', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    displayBasicVulnerabilities(data.data);
+                } else {
+                    console.error('API Error:', data.message);
+                    document.getElementById('vulnerabilities-tbody').innerHTML = 
+                        '<tr><td colspan="6" class="px-6 py-12 text-center text-red-500">加载失败: ' + 
+                        (data.message || '未知错误') + '</td></tr>';
+                }
+            } catch (error) {
+                console.error('Network Error:', error);
+                document.getElementById('vulnerabilities-tbody').innerHTML = 
+                    '<tr><td colspan="6" class="px-6 py-12 text-center text-red-500">网络错误，请检查连接</td></tr>';
+            }
+        }
+        
+        function displayBasicVulnerabilities(vulnerabilities) {
+            const tbody = document.getElementById('vulnerabilities-tbody');
+            
+            if (vulnerabilities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">暂无数据</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = vulnerabilities.map(vuln => {
+                const severityColor = {
+                    'critical': 'bg-red-100 text-red-800',
+                    'high': 'bg-orange-100 text-orange-800',  
+                    'medium': 'bg-yellow-100 text-yellow-800',
+                    'low': 'bg-green-100 text-green-800'
+                }[vuln.severity] || 'bg-gray-100 text-gray-800';
+                
+                const severityLabel = {
+                    'critical': '严重',
+                    'high': '高危',
+                    'medium': '中危',
+                    'low': '低危'
+                }[vuln.severity] || vuln.severity;
+
+                return `
+                    <tr class="hover:bg-gray-50 transition-colors duration-200">
+                        <td class="px-6 py-4 text-sm font-medium text-blue-600">
+                            ${vuln.cve_id || '---'}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">
+                            <div class="max-w-xs truncate" title="${vuln.title}">
+                                ${vuln.title}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${severityColor}">
+                                ${severityLabel}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${vuln.source}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            ${new Date(vuln.published_date).toLocaleDateString('zh-CN')}
+                        </td>
+                        <td class="px-6 py-4 text-sm">
+                            <a href="/vulnerabilities/${vuln.id}" 
+                               class="btn btn-sm btn-primary">
+                                <i class="fas fa-eye mr-1"></i>
+                                查看详情
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html> 

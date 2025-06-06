@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置 - VulnScope</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/layout.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="navbar-gradient text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-shield-alt text-2xl mr-3"></i>
+                    <span class="text-xl font-bold">VulnScope</span>
+                    <span class="ml-2 text-sm opacity-75">漏洞情报收集平台</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <i class="fas fa-bell text-lg cursor-pointer hover:text-yellow-300"></i>
+                        <span class="absolute -top-2 -right-2 bg-red-500 text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                    </div>
+                    <div class="flex items-center space-x-2 user-menu-trigger cursor-pointer relative">
+                        <div class="user-avatar">
+                            <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-600"></i>
+                            </div>
+                        </div>
+                        <span class="text-sm user-display-name">安全管理员</span>
+                        <i class="fas fa-chevron-down text-xs ml-1"></i>
+                        <!-- 用户下拉菜单 -->
+                        <div class="user-dropdown-menu absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden">
+                            <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-user mr-2"></i>个人资料
+                            </a>
+                            <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-cog mr-2"></i>系统设置
+                            </a>
+                            <hr class="my-1">
+                            <button class="logout-btn w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white shadow-lg min-h-screen">
+            <div class="p-4">
+                <nav class="space-y-2">
+                    <a href="/" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+                        <i class="fas fa-tachometer-alt sidebar-icon mr-3"></i>
+                        控制台
+                    </a>
+                    <a href="/vulnerabilities" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+                        <i class="fas fa-bug sidebar-icon mr-3"></i>
+                        漏洞情报
+                    </a>
+                    <a href="/search" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+                        <i class="fas fa-search sidebar-icon mr-3"></i>
+                        搜索分析
+                    </a>
+                    <a href="/analytics" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+                        <i class="fas fa-chart-line sidebar-icon mr-3"></i>
+                        趋势分析
+                    </a>
+                    <a href="/settings" class="sidebar-nav-item flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg active" data-page="settings">
+                        <i class="fas fa-cogs sidebar-icon mr-3"></i>
+                        系统设置
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Collection Status -->
+            <div class="p-4 border-t">
+                <h3 class="text-sm font-medium text-gray-500 mb-3">收集状态</h3>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">NVD</span>
+                        <span class="text-green-500"><i class="fas fa-circle text-xs mr-1"></i>活跃</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">Exploit-DB</span>
+                        <span class="text-green-500"><i class="fas fa-circle text-xs mr-1"></i>活跃</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">CVE Details</span>
+                        <span class="text-yellow-500"><i class="fas fa-circle text-xs mr-1"></i>同步中</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 p-6">
+            <h1 class="page-title">系统设置</h1>
+            
+            <!-- Collection Settings -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900">数据收集设置</h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">收集间隔（分钟）</label>
+                        <input type="number" id="collection-interval" value="60" min="15" max="1440"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">设置自动收集漏洞数据的时间间隔</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">NVD API Key</label>
+                            <input type="password" id="nvd-api-key" placeholder="输入NVD API密钥"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-sm text-gray-500 mt-1">提高API请求限制</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">GitHub Token</label>
+                            <input type="password" id="github-token" placeholder="输入GitHub访问令牌"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-sm text-gray-500 mt-1">访问GitHub安全公告</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">启用的数据源</h3>
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-nvd" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">NVD (National Vulnerability Database)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-exploit-db" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Exploit-DB</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-github" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">GitHub Security Advisories</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-cve-details" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">CVE Details</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Chinese Vulnerability Sources -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">中文漏洞源</h3>
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-aliyun-avd" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">阿里云漏洞库 (高危/严重)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-chaitin-vuldb" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">长亭漏洞库</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-qianxin-ti" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">奇安信威胁情报中心</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable-threatbook-x" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">微步在线威胁情报</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900">通知设置</h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">严重漏洞通知</h3>
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="notify-critical" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">严重漏洞实时通知</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="notify-high" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">高危漏洞实时通知</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="daily-report" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">每日汇总报告</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">邮件服务器</label>
+                            <input type="text" id="email-server" placeholder="smtp.example.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">邮件端口</label>
+                            <input type="number" id="email-port" value="587"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Slack Webhook URL</label>
+                        <input type="url" id="slack-webhook" placeholder="https://hooks.slack.com/services/..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Settings -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900">数据库设置</h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">数据保留天数</label>
+                            <input type="number" id="data-retention-days" value="365" min="30" max="1095"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-sm text-gray-500 mt-1">自动清理超过指定天数的历史数据</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">备份频率</label>
+                            <select id="backup-frequency" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="daily">每日</option>
+                                <option value="weekly" selected>每周</option>
+                                <option value="monthly">每月</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+                        <div>
+                            <h4 class="text-sm font-medium text-yellow-800">数据库维护</h4>
+                            <p class="text-sm text-yellow-700">定期优化数据库以提高性能</p>
+                        </div>
+                        <button onclick="optimizeDatabase()" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
+                            立即优化
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Cleaning Settings -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900">数据清洗管理</h2>
+                    <p class="text-sm text-gray-600 mt-1">维护数据质量，清理无效和重复数据</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Quick Actions -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="p-4 bg-blue-50 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-blue-800">移除重复漏洞</h4>
+                                    <p class="text-xs text-blue-600 mt-1">清理具有相同CVE ID的重复记录</p>
+                                </div>
+                                <button onclick="cleanDuplicates()" class="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
+                                    <i class="fas fa-copy mr-1"></i>清理
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-red-50 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-red-800">清理空记录</h4>
+                                    <p class="text-xs text-red-600 mt-1">移除标题或描述为空的记录</p>
+                                </div>
+                                <button onclick="cleanEmptyRecords()" class="px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700">
+                                    <i class="fas fa-trash mr-1"></i>清理
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-orange-50 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-orange-800">修正CVSS评分</h4>
+                                    <p class="text-xs text-orange-600 mt-1">清理超出0-10范围的无效评分</p>
+                                </div>
+                                <button onclick="cleanCvssScores()" class="px-3 py-1.5 bg-orange-600 text-white text-xs rounded hover:bg-orange-700">
+                                    <i class="fas fa-chart-line mr-1"></i>修正
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-green-50 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-green-800">标准化严重程度</h4>
+                                    <p class="text-xs text-green-600 mt-1">统一严重程度值格式</p>
+                                </div>
+                                <button onclick="standardizeSeverity()" class="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">
+                                    <i class="fas fa-check-circle mr-1"></i>标准化
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-purple-50 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-purple-800">规范CVE ID</h4>
+                                    <p class="text-xs text-purple-600 mt-1">统一CVE ID格式标准</p>
+                                </div>
+                                <button onclick="normalizeCveIds()" class="px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700">
+                                    <i class="fas fa-tag mr-1"></i>规范
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-pink-50 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-pink-800">清理错误URL</h4>
+                                    <p class="text-xs text-pink-600 mt-1">移除格式错误的源链接</p>
+                                </div>
+                                <button onclick="cleanMalformedUrls()" class="px-3 py-1.5 bg-pink-600 text-white text-xs rounded hover:bg-pink-700">
+                                    <i class="fas fa-link mr-1"></i>清理
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test Data Removal -->
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-800">移除测试数据</h4>
+                                <p class="text-xs text-gray-600 mt-1">清理标记为测试、演示或样本的数据</p>
+                            </div>
+                            <button onclick="removeTestData()" class="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+                                <i class="fas fa-flask mr-1"></i>移除测试数据
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Comprehensive Cleaning -->
+                    <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-medium text-indigo-800">综合数据清洗</h4>
+                                <p class="text-xs text-indigo-600 mt-1">一键执行所有数据清洗操作，全面优化数据质量</p>
+                            </div>
+                            <button onclick="comprehensiveClean()" class="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm rounded hover:from-indigo-700 hover:to-purple-700 font-medium">
+                                <i class="fas fa-magic mr-2"></i>一键清洗
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cleaning Result Display -->
+                    <div id="cleaning-result" class="hidden p-4 bg-gray-50 rounded-lg">
+                        <h4 class="text-sm font-medium text-gray-800 mb-2">清洗结果</h4>
+                        <div id="cleaning-details" class="text-xs text-gray-600"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900">系统状态</h2>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">99.9%</div>
+                            <div class="text-sm text-gray-500">系统可用性</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">1,234</div>
+                            <div class="text-sm text-gray-500">总漏洞数</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-orange-600">45</div>
+                            <div class="text-sm text-gray-500">今日新增</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="flex justify-end space-x-4">
+                <button onclick="resetSettings()" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
+                    重置设置
+                </button>
+                <button onclick="saveSettings()" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    保存设置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function saveSettings() {
+            try {
+                // 收集所有设置数据
+                const settings = {
+                    collection_interval: parseInt(document.getElementById('collection-interval').value),
+                    nvd_api_key: document.getElementById('nvd-api-key').value || null,
+                    github_token: document.getElementById('github-token').value || null,
+                    enable_nvd: document.getElementById('enable-nvd').checked,
+                    enable_exploit_db: document.getElementById('enable-exploit-db').checked,
+                    enable_github: document.getElementById('enable-github').checked,
+                    enable_cve_details: document.getElementById('enable-cve-details').checked,
+                    enable_aliyun_avd: document.getElementById('enable-aliyun-avd').checked,
+                    enable_chaitin_vuldb: document.getElementById('enable-chaitin-vuldb').checked,
+                    enable_qianxin_ti: document.getElementById('enable-qianxin-ti').checked,
+                    enable_threatbook_x: document.getElementById('enable-threatbook-x').checked,
+                    notify_critical: document.getElementById('notify-critical').checked,
+                    notify_high: document.getElementById('notify-high').checked,
+                    daily_report: document.getElementById('daily-report').checked,
+                    email_server: document.getElementById('email-server').value || null,
+                    email_port: document.getElementById('email-port').value ? parseInt(document.getElementById('email-port').value) : null,
+                    slack_webhook: document.getElementById('slack-webhook').value || null,
+                    data_retention_days: parseInt(document.getElementById('data-retention-days').value),
+                    backup_frequency: document.getElementById('backup-frequency').value
+                };
+
+                // 获取认证token
+                const token = getCookie('token') || localStorage.getItem('auth_token');
+                
+                // 发送到后端API
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showNotification('设置已保存', 'success');
+                    console.log('设置保存成功:', data.data);
+                } else {
+                    showNotification(data.message || '保存设置失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存设置时发生错误:', error);
+                showNotification('保存设置时发生错误', 'error');
+            }
+        }
+
+        function resetSettings() {
+            if (confirm('确定要重置所有设置吗？')) {
+                // 重置为默认值
+                document.getElementById('collection-interval').value = 60;
+                document.getElementById('nvd-api-key').value = '';
+                document.getElementById('github-token').value = '';
+                document.getElementById('enable-nvd').checked = true;
+                document.getElementById('enable-exploit-db').checked = true;
+                document.getElementById('enable-github').checked = false;
+                document.getElementById('enable-cve-details').checked = true;
+                
+                showNotification('设置已重置', 'info');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // 加载现有设置
+        async function loadSettings() {
+            try {
+                const token = getCookie('token') || localStorage.getItem('auth_token');
+                
+                // 加载系统设置
+                const settingsResponse = await fetch('/api/settings', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (settingsResponse.ok) {
+                    const settingsData = await settingsResponse.json();
+                    if (settingsData.success && settingsData.data) {
+                        const settings = settingsData.data;
+                        
+                        // 填充表单字段
+                        document.getElementById('collection-interval').value = settings.collection_interval;
+                        document.getElementById('nvd-api-key').value = settings.nvd_api_key || '';
+                        document.getElementById('github-token').value = settings.github_token || '';
+                                        document.getElementById('enable-nvd').checked = settings.enable_nvd;
+                document.getElementById('enable-exploit-db').checked = settings.enable_exploit_db;
+                document.getElementById('enable-github').checked = settings.enable_github;
+                document.getElementById('enable-cve-details').checked = settings.enable_cve_details;
+                document.getElementById('enable-aliyun-avd').checked = settings.enable_aliyun_avd;
+                document.getElementById('enable-chaitin-vuldb').checked = settings.enable_chaitin_vuldb;
+                document.getElementById('enable-qianxin-ti').checked = settings.enable_qianxin_ti;
+                document.getElementById('enable-threatbook-x').checked = settings.enable_threatbook_x;
+                        document.getElementById('notify-critical').checked = settings.notify_critical;
+                        document.getElementById('notify-high').checked = settings.notify_high;
+                        document.getElementById('daily-report').checked = settings.daily_report;
+                        document.getElementById('email-server').value = settings.email_server || '';
+                        document.getElementById('email-port').value = settings.email_port || 587;
+                        document.getElementById('slack-webhook').value = settings.slack_webhook || '';
+                        document.getElementById('data-retention-days').value = settings.data_retention_days;
+                        document.getElementById('backup-frequency').value = settings.backup_frequency;
+                    }
+                }
+
+                // 加载系统状态
+                const statusResponse = await fetch('/api/system/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (statusResponse.ok) {
+                    const statusData = await statusResponse.json();
+                    if (statusData.success && statusData.data) {
+                        updateSystemStatus(statusData.data);
+                    }
+                }
+            } catch (error) {
+                console.error('加载设置时发生错误:', error);
+            }
+        }
+
+        // 更新系统状态显示
+        function updateSystemStatus(status) {
+            // 更新系统状态数字
+            const stats = document.querySelectorAll('.text-center');
+            if (stats.length >= 3) {
+                stats[0].querySelector('.text-2xl').textContent = status.system_availability + '%';
+                stats[1].querySelector('.text-2xl').textContent = status.total_vulnerabilities.toLocaleString();
+                stats[2].querySelector('.text-2xl').textContent = status.today_new_vulnerabilities;
+            }
+        }
+
+        // 获取Cookie值的辅助函数
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        // 数据库优化功能
+        async function optimizeDatabase() {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            try {
+                button.disabled = true;
+                button.textContent = '优化中...';
+                
+                const token = getCookie('token') || localStorage.getItem('auth_token');
+                const response = await fetch('/api/system/optimize', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showNotification('数据库优化完成', 'success');
+                } else {
+                    showNotification(data.message || '优化失败', 'error');
+                }
+            } catch (error) {
+                console.error('数据库优化错误:', error);
+                showNotification('优化时发生错误', 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        // 数据清洗功能
+        async function executeCleaningAction(endpoint, actionName, buttonElement) {
+            const originalText = buttonElement.textContent;
+            
+            try {
+                buttonElement.disabled = true;
+                buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>处理中...';
+                
+                const token = getCookie('token') || localStorage.getItem('auth_token');
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showNotification(data.data, 'success');
+                    // 刷新页面数据
+                    loadSettings();
+                } else {
+                    showNotification(data.message || `${actionName}失败`, 'error');
+                }
+            } catch (error) {
+                console.error(`${actionName}错误:`, error);
+                showNotification(`${actionName}时发生错误`, 'error');
+            } finally {
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = originalText;
+            }
+        }
+
+        // 移除重复漏洞
+        async function cleanDuplicates() {
+            if (confirm('确定要移除重复的漏洞记录吗？此操作将保留最新的记录。')) {
+                await executeCleaningAction('/api/system/clean/duplicates', '移除重复漏洞', event.target);
+            }
+        }
+
+        // 清理空记录
+        async function cleanEmptyRecords() {
+            if (confirm('确定要清理空的漏洞记录吗？此操作将删除标题或描述为空的记录。')) {
+                await executeCleaningAction('/api/system/clean/empty', '清理空记录', event.target);
+            }
+        }
+
+        // 修正CVSS评分
+        async function cleanCvssScores() {
+            if (confirm('确定要修正无效的CVSS评分吗？此操作将清理超出0-10范围的评分。')) {
+                await executeCleaningAction('/api/system/clean/cvss', '修正CVSS评分', event.target);
+            }
+        }
+
+        // 标准化严重程度
+        async function standardizeSeverity() {
+            if (confirm('确定要标准化严重程度值吗？此操作将统一严重程度格式。')) {
+                await executeCleaningAction('/api/system/clean/severity', '标准化严重程度', event.target);
+            }
+        }
+
+        // 规范CVE ID
+        async function normalizeCveIds() {
+            if (confirm('确定要规范CVE ID格式吗？此操作将统一CVE ID的格式标准。')) {
+                await executeCleaningAction('/api/system/clean/cve', '规范CVE ID', event.target);
+            }
+        }
+
+        // 清理错误URL
+        async function cleanMalformedUrls() {
+            if (confirm('确定要清理格式错误的URL吗？此操作将移除无效的源链接。')) {
+                await executeCleaningAction('/api/system/clean/urls', '清理错误URL', event.target);
+            }
+        }
+
+        // 移除测试数据
+        async function removeTestData() {
+            if (confirm('确定要移除测试数据吗？此操作将删除标记为测试、演示或样本的数据。')) {
+                await executeCleaningAction('/api/system/clean/test', '移除测试数据', event.target);
+            }
+        }
+
+        // 综合数据清洗
+        async function comprehensiveClean() {
+            if (confirm('确定要执行综合数据清洗吗？此操作将执行所有清洗步骤，可能需要较长时间。')) {
+                const button = event.target;
+                const originalHTML = button.innerHTML;
+                
+                try {
+                    button.disabled = true;
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>清洗中...';
+                    
+                    const token = getCookie('token') || localStorage.getItem('auth_token');
+                    const response = await fetch('/api/system/clean/comprehensive', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        showNotification('综合数据清洗完成', 'success');
+                        displayCleaningResult(data.data);
+                        // 刷新页面数据
+                        loadSettings();
+                    } else {
+                        showNotification(data.message || '综合数据清洗失败', 'error');
+                    }
+                } catch (error) {
+                    console.error('综合数据清洗错误:', error);
+                    showNotification('综合数据清洗时发生错误', 'error');
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalHTML;
+                }
+            }
+        }
+
+        // 显示清洗结果
+        function displayCleaningResult(result) {
+            const resultDiv = document.getElementById('cleaning-result');
+            const detailsDiv = document.getElementById('cleaning-details');
+            
+            const details = `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div>重复记录移除: <span class="font-medium">${result.duplicates_removed}</span></div>
+                    <div>空记录清理: <span class="font-medium">${result.empty_records_cleaned}</span></div>
+                    <div>CVSS评分修正: <span class="font-medium">${result.invalid_cvss_fixed}</span></div>
+                    <div>严重程度标准化: <span class="font-medium">${result.severity_standardized}</span></div>
+                    <div>CVE ID规范: <span class="font-medium">${result.cve_ids_normalized}</span></div>
+                    <div>URL清理: <span class="font-medium">${result.malformed_urls_cleaned}</span></div>
+                    <div>日志清理: <span class="font-medium">${result.orphaned_logs_cleaned}</span></div>
+                    <div>测试数据移除: <span class="font-medium">${result.test_data_removed}</span></div>
+                </div>
+                <div class="mt-2 pt-2 border-t border-gray-300">
+                    <div class="font-medium text-indigo-700">总处理记录数: ${result.total_processed}</div>
+                    <div class="text-xs text-gray-500">清洗时间: ${new Date(result.cleaned_at).toLocaleString('zh-CN')}</div>
+                </div>
+            `;
+            
+            detailsDiv.innerHTML = details;
+            resultDiv.classList.remove('hidden');
+            
+            // 5秒后自动隐藏结果
+            setTimeout(() => {
+                resultDiv.classList.add('hidden');
+            }, 10000);
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,719 @@
+/* VulnScope - 漏洞情报分析平台主脚本文件 */
+
+// 防止重复加载
+if (typeof window.VulnScope !== 'undefined') {
+    console.log('VulnScope already loaded, skipping...');
+} else {
+
+// ========== 全局配置 ==========
+const Config = {
+    API_BASE_URL: 'http://localhost:3000/api',
+    TOKEN_KEY: 'token',
+    USER_KEY: 'user_info',
+    REFRESH_INTERVAL: 30000, // 30秒
+    NOTIFICATION_TIMEOUT: 3000, // 3秒
+    ANIMATION_DELAY: 100, // 动画延迟
+};
+
+// ========== 工具函数 ==========
+const Utils = {
+    // 获取token
+    getToken() {
+        return localStorage.getItem(Config.TOKEN_KEY) || sessionStorage.getItem(Config.TOKEN_KEY);
+    },
+
+    // 设置token
+    setToken(token, remember = false) {
+        if (remember) {
+            localStorage.setItem(Config.TOKEN_KEY, token);
+        } else {
+            sessionStorage.setItem(Config.TOKEN_KEY, token);
+        }
+    },
+
+    // 清除token
+    clearToken() {
+        localStorage.removeItem(Config.TOKEN_KEY);
+        sessionStorage.removeItem(Config.TOKEN_KEY);
+        localStorage.removeItem(Config.USER_KEY);
+        
+        // 清除可能存在的其他认证相关数据
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_token');
+        
+        // 清除cookie中的token（如果存在）
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    },
+
+    // 检查是否已登录
+    isLoggedIn() {
+        return !!this.getToken();
+    },
+
+    // 格式化日期
+    formatDate(date, format = 'YYYY-MM-DD HH:mm:ss') {
+        if (!date) return '-';
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const seconds = String(d.getSeconds()).padStart(2, '0');
+        
+        return format
+            .replace('YYYY', year)
+            .replace('MM', month)
+            .replace('DD', day)
+            .replace('HH', hours)
+            .replace('mm', minutes)
+            .replace('ss', seconds);
+    },
+
+    // 相对时间
+    timeAgo(date) {
+        if (!date) return '-';
+        const now = new Date();
+        const diff = now - new Date(date);
+        
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        
+        if (days > 0) return `${days}天前`;
+        if (hours > 0) return `${hours}小时前`;
+        if (minutes > 0) return `${minutes}分钟前`;
+        return '刚刚';
+    },
+
+    // 格式化文件大小
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    },
+
+    // 防抖函数
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+
+    // 节流函数
+    throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    },
+
+    // 复制到剪贴板
+    copyToClipboard(text) {
+        if (navigator.clipboard) {
+            return navigator.clipboard.writeText(text);
+        } else {
+            // 兼容旧浏览器
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return Promise.resolve();
+        }
+    },
+
+    // URL参数解析
+    getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const result = {};
+        for (const [key, value] of params) {
+            result[key] = value;
+        }
+        return result;
+    },
+
+    // 严重程度颜色映射
+    getSeverityClass(severity) {
+        const map = {
+            'critical': 'severity-critical',
+            'high': 'severity-high',
+            'medium': 'severity-medium',
+            'low': 'severity-low'
+        };
+        return map[severity] || 'severity-low';
+    },
+
+    // 严重程度文本映射
+    getSeverityText(severity) {
+        const map = {
+            'critical': '严重',
+            'high': '高危',
+            'medium': '中危',
+            'low': '低危'
+        };
+        return map[severity] || '未知';
+    }
+};
+
+// ========== API 调用封装 ==========
+const API = {
+    // 基础请求方法
+    async request(url, options = {}) {
+        const token = Utils.getToken();
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token && { 'Authorization': `Bearer ${token}` })
+            }
+        };
+
+        const finalOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...options.headers
+            }
+        };
+
+        try {
+            const response = await fetch(Config.API_BASE_URL + url, finalOptions);
+            
+            // 处理401未授权
+            if (response.status === 401) {
+                Utils.clearToken();
+                window.location.href = '/login';
+                return;
+            }
+
+            // 处理其他错误状态
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API请求失败:', error);
+            throw error;
+        }
+    },
+
+    // GET请求
+    get(url, params = {}) {
+        // 构建URL参数
+        const urlParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] !== null && params[key] !== undefined) {
+                urlParams.append(key, params[key]);
+            }
+        });
+        
+        // 直接返回URL和参数，避免重复拼接
+        const queryString = urlParams.toString();
+        const finalUrl = url + (queryString ? '?' + queryString : '');
+        return this.request(finalUrl);
+    },
+
+    // POST请求
+    post(url, data = {}) {
+        return this.request(url, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+
+    // PUT请求
+    put(url, data = {}) {
+        return this.request(url, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    },
+
+    // DELETE请求
+    delete(url) {
+        return this.request(url, {
+            method: 'DELETE'
+        });
+    },
+
+    // 具体API方法
+    auth: {
+        login: (credentials) => API.post('/auth/login', credentials),
+        logout: () => API.post('/auth/logout'),
+        register: (data) => API.post('/auth/register', data),
+        profile: () => API.get('/auth/profile')
+    },
+
+    stats: {
+        overview: () => API.get('/stats'),
+        collectors: () => API.get('/system/status'),
+        trends: (period = 'week') => API.get('/stats', { period })
+    },
+
+    vulnerabilities: {
+        list: (params = {}) => API.get('/vulnerabilities', params),
+        get: (id) => API.get(`/vulnerabilities/${id}`),
+        search: (query, filters = {}) => API.get('/search', { q: query, ...filters }),
+        export: (format = 'csv', filters = {}) => API.get('/vulnerabilities/export', { format, ...filters })
+    },
+
+    collectors: {
+        list: () => API.get('/system/status'),
+        status: () => API.get('/system/status'),
+        start: (name) => API.post(`/collectors/${name}/start`),
+        stop: (name) => API.post(`/collectors/${name}/stop`),
+        logs: (name) => API.get(`/collectors/${name}/logs`)
+    }
+};
+
+// ========== 通知系统 ==========
+const Notification = {
+    container: null,
+
+    init() {
+        // 创建通知容器
+        if (!this.container) {
+            this.container = document.createElement('div');
+            this.container.id = 'notification-container';
+            this.container.style.cssText = `
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                z-index: 1000;
+                pointer-events: none;
+            `;
+            document.body.appendChild(this.container);
+        }
+    },
+
+    show(message, type = 'info', duration = Config.NOTIFICATION_TIMEOUT) {
+        this.init();
+
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.pointerEvents = 'auto';
+        
+        const icon = this.getIcon(type);
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas ${icon}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" 
+                        style="margin-left: auto; background: none; border: none; cursor: pointer; opacity: 0.6;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        this.container.appendChild(notification);
+
+        // 显示动画
+        setTimeout(() => notification.classList.add('show'), 10);
+
+        // 自动隐藏
+        if (duration > 0) {
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => notification.remove(), 300);
+            }, duration);
+        }
+
+        return notification;
+    },
+
+    success(message) {
+        return this.show(message, 'success');
+    },
+
+    error(message) {
+        return this.show(message, 'error');
+    },
+
+    warning(message) {
+        return this.show(message, 'warning');
+    },
+
+    info(message) {
+        return this.show(message, 'info');
+    },
+
+    getIcon(type) {
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        return icons[type] || icons.info;
+    }
+};
+
+// ========== 加载状态管理 ==========
+const Loading = {
+    show(element, text = '加载中...') {
+        if (typeof element === 'string') {
+            element = document.querySelector(element);
+        }
+        if (!element) return;
+
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-overlay';
+        loadingDiv.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        `;
+        loadingDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div class="loading-spinner"></div>
+                <span>${text}</span>
+            </div>
+        `;
+
+        element.style.position = 'relative';
+        element.appendChild(loadingDiv);
+    },
+
+    hide(element) {
+        if (typeof element === 'string') {
+            element = document.querySelector(element);
+        }
+        if (!element) return;
+
+        const loadingDiv = element.querySelector('.loading-overlay');
+        if (loadingDiv) {
+            loadingDiv.remove();
+        }
+    }
+};
+
+// ========== 分页管理 ==========
+class Pagination {
+    constructor(container, options = {}) {
+        this.container = typeof container === 'string' ? document.querySelector(container) : container;
+        this.options = {
+            page: 1,
+            limit: 20,
+            total: 0,
+            maxVisible: 7,
+            onChange: () => {},
+            ...options
+        };
+        this.render();
+    }
+
+    render() {
+        if (!this.container) return;
+
+        const totalPages = Math.ceil(this.options.total / this.options.limit);
+        if (totalPages <= 1) {
+            this.container.innerHTML = '';
+            return;
+        }
+
+        const pagination = document.createElement('div');
+        pagination.className = 'pagination';
+
+        // 上一页
+        const prevButton = this.createButton('‹', this.options.page - 1, this.options.page <= 1);
+        pagination.appendChild(prevButton);
+
+        // 页码
+        const pages = this.getVisiblePages(this.options.page, totalPages);
+        pages.forEach(page => {
+            if (page === '...') {
+                const dots = document.createElement('span');
+                dots.className = 'pagination-item disabled';
+                dots.textContent = '...';
+                pagination.appendChild(dots);
+            } else {
+                const pageButton = this.createButton(page, page, false, page === this.options.page);
+                pagination.appendChild(pageButton);
+            }
+        });
+
+        // 下一页
+        const nextButton = this.createButton('›', this.options.page + 1, this.options.page >= totalPages);
+        pagination.appendChild(nextButton);
+
+        this.container.innerHTML = '';
+        this.container.appendChild(pagination);
+    }
+
+    createButton(text, page, disabled, active = false) {
+        const button = document.createElement('a');
+        button.className = 'pagination-item';
+        button.textContent = text;
+        button.href = '#';
+
+        if (disabled) {
+            button.classList.add('disabled');
+        } else if (active) {
+            button.classList.add('active');
+        } else {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.goToPage(page);
+            });
+        }
+
+        return button;
+    }
+
+    getVisiblePages(current, total) {
+        const { maxVisible } = this.options;
+        const pages = [];
+
+        if (total <= maxVisible) {
+            for (let i = 1; i <= total; i++) {
+                pages.push(i);
+            }
+        } else {
+            const start = Math.max(1, current - Math.floor(maxVisible / 2));
+            const end = Math.min(total, start + maxVisible - 1);
+
+            if (start > 1) {
+                pages.push(1);
+                if (start > 2) pages.push('...');
+            }
+
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+
+            if (end < total) {
+                if (end < total - 1) pages.push('...');
+                pages.push(total);
+            }
+        }
+
+        return pages;
+    }
+
+    goToPage(page) {
+        const totalPages = Math.ceil(this.options.total / this.options.limit);
+        if (page < 1 || page > totalPages) return;
+
+        this.options.page = page;
+        this.render();
+        this.options.onChange(page);
+    }
+
+    update(options) {
+        Object.assign(this.options, options);
+        this.render();
+    }
+}
+
+// ========== 表格排序 ==========
+const TableSort = {
+    init(table) {
+        const headers = table.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            header.style.cursor = 'pointer';
+            header.addEventListener('click', () => {
+                this.sort(table, header.dataset.sort, header);
+            });
+        });
+    },
+
+    sort(table, column, header) {
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const isAsc = header.classList.contains('sort-desc');
+        
+        // 清除其他排序标记
+        table.querySelectorAll('th').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+
+        // 添加当前排序标记
+        header.classList.add(isAsc ? 'sort-asc' : 'sort-desc');
+
+        // 排序
+        rows.sort((a, b) => {
+            const aVal = a.querySelector(`[data-value="${column}"]`)?.dataset.value || 
+                        a.querySelector(`td:nth-child(${this.getColumnIndex(table, column)})`)?.textContent || '';
+            const bVal = b.querySelector(`[data-value="${column}"]`)?.dataset.value || 
+                        b.querySelector(`td:nth-child(${this.getColumnIndex(table, column)})`)?.textContent || '';
+
+            const result = aVal.localeCompare(bVal, 'zh-CN', { numeric: true });
+            return isAsc ? result : -result;
+        });
+
+        // 重新排列行
+        rows.forEach(row => tbody.appendChild(row));
+    },
+
+    getColumnIndex(table, column) {
+        const headers = table.querySelectorAll('th');
+        for (let i = 0; i < headers.length; i++) {
+            if (headers[i].dataset.sort === column) {
+                return i + 1;
+            }
+        }
+        return 1;
+    }
+};
+
+// ========== 搜索功能 ==========
+const Search = {
+    init(options = {}) {
+        this.options = {
+            input: '#search-input',
+            form: '#search-form',
+            results: '#search-results',
+            filters: '.search-filters',
+            debounceTime: 500,
+            minLength: 2,
+            onSearch: () => {},
+            onFilter: () => {},
+            ...options
+        };
+
+        this.bindEvents();
+    },
+
+    bindEvents() {
+        const input = document.querySelector(this.options.input);
+        const form = document.querySelector(this.options.form);
+        const filters = document.querySelectorAll(this.options.filters);
+
+        if (input) {
+            const debouncedSearch = Utils.debounce(
+                () => this.search(input.value.trim()),
+                this.options.debounceTime
+            );
+            input.addEventListener('input', debouncedSearch);
+        }
+
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(form);
+                this.search(formData.get('q') || '', Object.fromEntries(formData));
+            });
+        }
+
+        filters.forEach(filter => {
+            filter.addEventListener('change', () => {
+                this.applyFilters();
+            });
+        });
+    },
+
+    search(query, filters = {}) {
+        if (query.length < this.options.minLength && query.length > 0) {
+            return;
+        }
+
+        this.options.onSearch(query, filters);
+    },
+
+    applyFilters() {
+        const filters = {};
+        document.querySelectorAll(this.options.filters).forEach(filter => {
+            if (filter.checked || filter.selected) {
+                filters[filter.name] = filter.value;
+            }
+        });
+
+        this.options.onFilter(filters);
+    }
+};
+
+// ========== 页面初始化 ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // 检查登录状态
+    if (!Utils.isLoggedIn() && !window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        // 延迟重定向，避免闪烁
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 100);
+        return;
+    }
+
+    // 初始化通知系统
+    Notification.init();
+
+    // 初始化表格排序
+    document.querySelectorAll('table[data-sortable]').forEach(table => {
+        TableSort.init(table);
+    });
+
+    // 初始化搜索
+    if (document.querySelector('#search-input')) {
+        Search.init();
+    }
+
+    // 初始化动画（延迟执行，确保布局完成）
+    setTimeout(() => {
+        const animatedElements = document.querySelectorAll('[data-animate]');
+        animatedElements.forEach((element, index) => {
+            setTimeout(() => {
+                element.classList.add(element.dataset.animate);
+            }, index * Config.ANIMATION_DELAY);
+        });
+    }, 50);
+
+    // 错误处理
+    window.addEventListener('error', (e) => {
+        console.error('页面错误:', e.error || e.message || '未知错误');
+        if (e.error && !e.error.toString().includes('Script error')) {
+            Notification.error('页面出现错误，请刷新重试');
+        }
+    });
+
+    // 网络状态监测
+    window.addEventListener('online', () => {
+        Notification.success('网络连接已恢复');
+    });
+
+    window.addEventListener('offline', () => {
+        Notification.warning('网络连接已断开');
+    });
+
+    // 添加页面加载完成标记
+    document.body.classList.add('page-loaded');
+});
+
+// ========== 全局导出 ==========
+window.VulnScope = {
+    Utils,
+    API,
+    Notification,
+    Loading,
+    Pagination,
+    TableSort,
+    Search,
+    Config
+};
+
+// 结束防重复加载检查
+} 

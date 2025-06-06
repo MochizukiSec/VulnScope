@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VulnScope - 漏洞情报分析平台</title>
+    
+    <!-- 外部依赖 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/chart.js"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 项目样式 -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/layout.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen" id="dashboard-page">
+    <!-- 顶部导航栏 -->
+    <nav class="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-shield-halved text-3xl text-indigo-600 mr-3"></i>
+                        <h1 class="nav-brand">VulnScope</h1>
+                    </div>
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/dashboard" class="nav-link active">
+                            <i class="fas fa-tachometer-alt mr-2"></i>仪表板
+                        </a>
+                        <a href="/vulnerabilities" class="nav-link">
+                            <i class="fas fa-bug mr-2"></i>漏洞管理
+                        </a>
+                        <a href="/search" class="nav-link">
+                            <i class="fas fa-search mr-2"></i>搜索分析
+                        </a>
+                        <a href="/analytics" class="nav-link">
+                            <i class="fas fa-chart-line mr-2"></i>趋势分析
+                        </a>
+                        <a href="/settings" class="nav-link">
+                            <i class="fas fa-cog mr-2"></i>系统设置
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- 实时通知 -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" class="p-2 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative transition-all duration-200">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-400 animate-pulse-custom"></span>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-50">
+                            <div class="px-4 py-2 border-b border-gray-200">
+                                <p class="text-sm font-medium text-gray-900">最新通知</p>
+                            </div>
+                            <div class="max-h-64 overflow-y-auto custom-scrollbar">
+                                <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="font-medium">发现高危漏洞</p>
+                                            <p class="text-xs text-gray-500">5分钟前</p>
+                                        </div>
+                                    </div>
+                                </a>
+                                <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-sync-alt text-blue-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="font-medium">数据收集完成</p>
+                                            <p class="text-xs text-gray-500">15分钟前</p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 用户菜单 -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" class="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=Admin&background=6366f1&color=fff" alt="User avatar">
+                            <span class="ml-2 text-gray-700 font-medium">Admin</span>
+                            <i class="fas fa-chevron-down ml-1 text-gray-400"></i>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">个人资料</a>
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">账户设置</a>
+                            <div class="border-t border-gray-100"></div>
+                            <button class="logout-btn w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <!-- 页面标题和实时状态 -->
+        <div class="mb-8" data-animate="animate-slide-up">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">安全态势总览</h1>
+                    <p class="mt-2 text-gray-600">实时监控和漏洞情报分析</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="status-indicator status-online"></div>
+                        <span class="text-sm text-gray-600">系统运行正常</span>
+                    </div>
+                    <button id="refresh-data" class="btn btn-primary">
+                        <i class="fas fa-sync-alt mr-2"></i>刷新数据
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计卡片网格 -->
+        <div class="stats-grid" id="stats-cards">
+            <!-- 总漏洞数 -->
+            <div class="stats-card card-hover" data-animate="animate-fade-scale">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="stats-label">总漏洞数</p>
+                        <p class="stats-value counter" id="total-count">0</p>
+                        <p class="stats-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span id="total-growth">0%</span> 相比昨日
+                        </p>
+                    </div>
+                    <div class="stats-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                        <i class="fas fa-database text-white text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 严重漏洞 -->
+            <div class="stats-card card-hover" data-animate="animate-fade-scale" style="animation-delay: 0.1s;">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="stats-label">严重漏洞</p>
+                        <p class="stats-value counter" id="critical-count" style="color: var(--critical-color);">0</p>
+                        <p class="stats-change negative">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            需要立即处理
+                        </p>
+                    </div>
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--critical-color) 0%, #b91c1c 100%);">
+                        <i class="fas fa-exclamation-triangle text-white text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 高危漏洞 -->
+            <div class="stats-card card-hover" data-animate="animate-fade-scale" style="animation-delay: 0.2s;">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="stats-label">高危漏洞</p>
+                        <p class="stats-value counter" id="high-count" style="color: var(--high-color);">0</p>
+                        <p class="stats-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span id="high-growth">0%</span> 相比昨日
+                        </p>
+                    </div>
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--high-color) 0%, #c2410c 100%);">
+                        <i class="fas fa-shield-virus text-white text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 活跃收集器 -->
+            <div class="stats-card card-hover" data-animate="animate-fade-scale" style="animation-delay: 0.3s;">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="stats-label">活跃收集器</p>
+                        <p class="stats-value counter" id="active-collectors" style="color: var(--success-color);">0</p>
+                        <p class="stats-change positive">
+                            <i class="fas fa-check-circle"></i>
+                            运行正常
+                        </p>
+                    </div>
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);">
+                        <i class="fas fa-robot text-white text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表和详细信息网格 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- 漏洞严重程度分布 -->
+            <div class="lg:col-span-2 card" data-animate="animate-fade-scale" style="animation-delay: 0.4s;">
+                <div class="card-header">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">漏洞严重程度分布</h3>
+                        <div class="flex space-x-2">
+                            <button class="btn btn-sm btn-secondary period-btn" data-period="day">今日</button>
+                            <button class="btn btn-sm btn-primary period-btn" data-period="week">本周</button>
+                            <button class="btn btn-sm btn-secondary period-btn" data-period="month">本月</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="severityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 收集器状态 -->
+            <div class="card" data-animate="animate-fade-scale" style="animation-delay: 0.5s;">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold text-gray-900">收集器状态</h3>
+                </div>
+                <div class="card-body">
+                    <div class="space-y-4 custom-scrollbar max-h-80 overflow-y-auto" id="collectors-status">
+                        <!-- 收集器状态将通过JS动态加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最新漏洞和趋势 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- 最新高危漏洞 -->
+            <div class="card" data-animate="animate-fade-scale" style="animation-delay: 0.6s;">
+                <div class="card-header">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">最新高危漏洞</h3>
+                        <a href="/vulnerabilities" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200">
+                            查看全部 <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="space-y-4" id="recent-vulnerabilities">
+                        <!-- 最新漏洞将通过JS动态加载 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 漏洞趋势图 -->
+            <div class="card" data-animate="animate-fade-scale" style="animation-delay: 0.7s;">
+                <div class="card-header">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">7天漏洞趋势</h3>
+                        <div class="flex items-center space-x-2">
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 rounded-full" style="background-color: var(--critical-color);"></div>
+                                <span class="text-xs text-gray-600">严重</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 rounded-full" style="background-color: var(--high-color);"></div>
+                                <span class="text-xs text-gray-600">高危</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 来源分布图 -->
+        <div class="grid grid-cols-1 gap-6">
+            <div class="card" data-animate="animate-fade-scale" style="animation-delay: 0.8s;">
+                <div class="card-header">
+                    <h3 class="text-lg font-semibold text-gray-900">漏洞来源分布</h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="sourceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 项目脚本 -->
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html> 
